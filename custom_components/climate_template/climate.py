@@ -693,10 +693,6 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new operation mode."""
-        if self._hvac_mode_template is None:
-            self._attr_hvac_mode = hvac_mode  # always optimistic
-            self.async_write_ha_state()
-
         if self._set_hvac_mode_script:
             await self.async_run_script(
                 self._set_hvac_mode_script,
@@ -704,12 +700,12 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
                 context=self._context,
             )
 
-    async def async_set_preset_mode(self, preset_mode: str) -> None:
-        """Set new preset mode."""
-        if self._preset_mode_template is None:
-            self._attr_preset_mode = preset_mode
+        if self._hvac_mode_template is None:
+            self._attr_hvac_mode = hvac_mode  # always optimistic
             self.async_write_ha_state()
 
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
+        """Set new preset mode."""
         if self._set_preset_mode_script:
             await self.async_run_script(
                 self._set_preset_mode_script,
@@ -717,12 +713,12 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
                 context=self._context,
             )
 
-    async def async_set_fan_mode(self, fan_mode: str) -> None:
-        """Set new fan mode."""
-        if self._fan_mode_template is None:
-            self._attr_fan_mode = fan_mode  # always optimistic
+        if self._preset_mode_template is None:
+            self._attr_preset_mode = preset_mode
             self.async_write_ha_state()
 
+    async def async_set_fan_mode(self, fan_mode: str) -> None:
+        """Set new fan mode."""
         if self._set_fan_mode_script:
             await self.async_run_script(
                 self._set_fan_mode_script,
@@ -730,12 +726,12 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
                 context=self._context,
             )
 
-    async def async_set_swing_mode(self, swing_mode: str) -> None:
-        """Set new swing mode."""
-        if self._swing_mode_template is None:  # use optimistic mode
-            self._attr_swing_mode = swing_mode
+        if self._fan_mode_template is None:
+            self._attr_fan_mode = fan_mode  # always optimistic
             self.async_write_ha_state()
 
+    async def async_set_swing_mode(self, swing_mode: str) -> None:
+        """Set new swing mode."""
         if self._set_swing_mode_script:
             await self.async_run_script(
                 self._set_swing_mode_script,
@@ -743,8 +739,25 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
                 context=self._context,
             )
 
+        if self._swing_mode_template is None:  # use optimistic mode
+            self._attr_swing_mode = swing_mode
+            self.async_write_ha_state()
+
     async def async_set_temperature(self, **kwargs) -> None:
         """Set new target temperature explicitly triggered by user or automation."""
+        # Run the set temperature script if defined
+        if self._set_temperature_script:
+            await self.async_run_script(
+                self._set_temperature_script,
+                run_variables={
+                    ATTR_TEMPERATURE: kwargs.get(ATTR_TEMPERATURE),
+                    ATTR_TARGET_TEMP_HIGH: kwargs.get(ATTR_TARGET_TEMP_HIGH),
+                    ATTR_TARGET_TEMP_LOW: kwargs.get(ATTR_TARGET_TEMP_LOW),
+                    ATTR_HVAC_MODE: kwargs.get(ATTR_HVAC_MODE),
+                },
+                context=self._context,
+            )
+
         updated = False
 
         if kwargs.get(ATTR_HVAC_MODE, self._attr_hvac_mode) == HVACMode.HEAT_COOL:
@@ -780,28 +793,15 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
             if operation_mode != self._attr_hvac_mode:
                 await self.async_set_hvac_mode(operation_mode)
 
-        # Run the set temperature script if defined
-        if self._set_temperature_script:
-            await self.async_run_script(
-                self._set_temperature_script,
-                run_variables={
-                    ATTR_TEMPERATURE: kwargs.get(ATTR_TEMPERATURE),
-                    ATTR_TARGET_TEMP_HIGH: kwargs.get(ATTR_TARGET_TEMP_HIGH),
-                    ATTR_TARGET_TEMP_LOW: kwargs.get(ATTR_TARGET_TEMP_LOW),
-                    ATTR_HVAC_MODE: kwargs.get(ATTR_HVAC_MODE),
-                },
-                context=self._context,
-            )
-
     async def async_set_humidity(self, humidity):
         """Set new target humidity."""
-        if self._target_humidity_template is None:
-            self._attr_target_humidity = humidity  # always optimistic
-            self.async_write_ha_state()
-
         if self._set_humidity_script:
             await self.async_run_script(
                 self._set_humidity_script,
                 run_variables={ATTR_HUMIDITY: humidity},
                 context=self._context,
             )
+
+        if self._target_humidity_template is None:
+            self._attr_target_humidity = humidity  # always optimistic
+            self.async_write_ha_state()
